@@ -23,11 +23,16 @@ A Python script to automate the cleanup of your Gmail account by deleting all em
    pip install -r requirements.txt
    ```
 
-3. **Obtain Gmail API credentials:**
-   - Go to the [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project (or use an existing one)
-   - Enable the Gmail API
+3. **Enable the Gmail API for your project:**
+   - In the [Google Cloud Console](https://console.cloud.google.com/), select your project.
+   - Go to "APIs & Services" > "Library" and search for "Gmail API".
+   - Click "Enable" to activate the Gmail API for your project.
+
+4. **Obtain Gmail API credentials:**
+   - In the same project, go to "APIs & Services" > "Credentials".
    - Create OAuth 2.0 credentials and download the `credentials.json` file
+   - **Important:** When configuring OAuth consent and scopes, ensure you use the following scope for full mailbox access (required for deleting emails):
+     - `https://mail.google.com/`
    - Place `credentials.json` in the project root or specify its path with `--credentials`
 
 ## Usage
@@ -64,3 +69,9 @@ Run the script from the project directory:
 
 ## License
 MIT
+
+---
+
+## Project Management with Taskmaster
+
+This project uses [Taskmaster](https://github.com/taskmaster-ai/taskmaster) for AI-powered project and task management. Tasks are generated from a Product Requirements Document (PRD) and tracked throughout development. You can view, expand, and update tasks using Taskmaster commands in Cursor or the CLI. For more information, see the `.taskmaster` directory and Taskmaster documentation.
