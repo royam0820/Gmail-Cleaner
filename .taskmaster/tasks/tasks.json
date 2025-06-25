@@ -1,0 +1,152 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Set up project structure and dependencies",
+        "description": "Create the initial project structure with required files and install necessary dependencies for Gmail API access.",
+        "details": "1. Create a new Python project with the following structure:\n```\ngmail_cleaner/\n  ├── main.py\n  ├── requirements.txt\n  ├── README.md\n  └── .gitignore\n```\n2. Add the following dependencies to requirements.txt:\n```\ngoogle-auth-oauthlib>=0.4.6\ngoogle-api-python-client>=2.0.0\n```\n3. Create a basic .gitignore file that excludes:\n```\n__pycache__/\n*.py[cod]\n*$py.class\nvenv/\ncredentials.json\ntoken.json\n```\n4. Initialize a git repository for version control.",
+        "testStrategy": "Verify the project structure is correctly set up by running `pip install -r requirements.txt` and confirming all dependencies install without errors.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement OAuth2 authentication for Gmail API",
+        "description": "Create authentication module to securely access the user's Gmail account using OAuth2.",
+        "details": "1. Create an `authenticate()` function that:\n   - Takes a path to credentials.json file as input\n   - Uses google-auth-oauthlib to handle the OAuth2 flow\n   - Requests the 'https://www.googleapis.com/auth/gmail.modify' scope\n   - Saves and loads credentials from token.json for subsequent runs\n   - Returns an authenticated Gmail API service object\n\n```python\nfrom google.oauth2.credentials import Credentials\nfrom google_auth_oauthlib.flow import InstalledAppFlow\nfrom googleapiclient.discovery import build\nfrom google.auth.transport.requests import Request\nimport os.path\n\ndef authenticate(credentials_path='credentials.json'):\n    \"\"\"Authenticate with Gmail API using OAuth2.\n    \n    Args:\n        credentials_path: Path to the credentials.json file\n        \n    Returns:\n        An authenticated Gmail API service object\n    \"\"\"\n    creds = None\n    SCOPES = ['https://www.googleapis.com/auth/gmail.modify']\n    \n    # Load existing token if available\n    if os.path.exists('token.json'):\n        creds = Credentials.from_authorized_user_info(\n            json.loads(open('token.json').read()))\n    \n    # If no valid credentials available, authenticate\n    if not creds or not creds.valid:\n        if creds and creds.expired and creds.refresh_token:\n            creds.refresh(Request())\n        else:\n            flow = InstalledAppFlow.from_client_secrets_file(\n                credentials_path, SCOPES)\n            creds = flow.run_local_server(port=0)\n        \n        # Save credentials for future use\n        with open('token.json', 'w') as token:\n            token.write(creds.to_json())\n    \n    # Build and return the Gmail API service\n    return build('gmail', 'v1', credentials=creds)\n```",
+        "testStrategy": "Test the authentication function by running it with a valid credentials.json file and verifying it successfully authenticates with Gmail API and creates a token.json file.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement message search for old inbox emails",
+        "description": "Create a function to search for all emails in the Inbox older than 1 year using Gmail API query.",
+        "details": "1. Create a `find_old_inbox_emails()` function that:\n   - Takes the Gmail API service object as input\n   - Uses the query 'in:inbox older_than:1y' to find old inbox emails\n   - Handles pagination to retrieve all matching messages\n   - Returns a list of message IDs\n\n```python\ndef find_old_inbox_emails(service, user_id='me'):\n    \"\"\"Find all emails in the inbox older than 1 year.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        user_id: User's email address or 'me'\n        \n    Returns:\n        List of message IDs for old inbox emails\n    \"\"\"\n    query = 'in:inbox older_than:1y'\n    message_ids = []\n    \n    try:\n        # Initial request\n        response = service.users().messages().list(\n            userId=user_id, q=query).execute()\n        \n        # Process messages and handle pagination\n        if 'messages' in response:\n            message_ids.extend([msg['id'] for msg in response['messages']])\n            \n        # Continue retrieving messages if there are more pages\n        while 'nextPageToken' in response:\n            page_token = response['nextPageToken']\n            response = service.users().messages().list(\n                userId=user_id, q=query, pageToken=page_token).execute()\n            \n            if 'messages' in response:\n                message_ids.extend([msg['id'] for msg in response['messages']])\n    \n    except Exception as error:\n        print(f'An error occurred: {error}')\n    \n    return message_ids\n```",
+        "testStrategy": "Test the function by calling it with an authenticated service object and verifying it returns a list of message IDs. Validate the query is correctly finding emails older than 1 year by checking the internalDate of a sample message.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement message search for spam emails",
+        "description": "Create a function to search for all emails in the Spam folder using Gmail API query.",
+        "details": "1. Create a `find_spam_emails()` function that:\n   - Takes the Gmail API service object as input\n   - Uses the query 'in:spam' to find spam emails\n   - Handles pagination to retrieve all matching messages\n   - Returns a list of message IDs\n\n```python\ndef find_spam_emails(service, user_id='me'):\n    \"\"\"Find all emails in the spam folder.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        user_id: User's email address or 'me'\n        \n    Returns:\n        List of message IDs for spam emails\n    \"\"\"\n    query = 'in:spam'\n    message_ids = []\n    \n    try:\n        # Initial request\n        response = service.users().messages().list(\n            userId=user_id, q=query).execute()\n        \n        # Process messages and handle pagination\n        if 'messages' in response:\n            message_ids.extend([msg['id'] for msg in response['messages']])\n            \n        # Continue retrieving messages if there are more pages\n        while 'nextPageToken' in response:\n            page_token = response['nextPageToken']\n            response = service.users().messages().list(\n                userId=user_id, q=query, pageToken=page_token).execute()\n            \n            if 'messages' in response:\n                message_ids.extend([msg['id'] for msg in response['messages']])\n    \n    except Exception as error:\n        print(f'An error occurred: {error}')\n    \n    return message_ids\n```",
+        "testStrategy": "Test the function by calling it with an authenticated service object and verifying it returns a list of message IDs. Validate the query is correctly finding spam emails by checking the labelIds of a sample message contains 'SPAM'.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement batch deletion of messages",
+        "description": "Create a function to delete messages in batches using the Gmail API's batchDelete endpoint.",
+        "details": "1. Create a `delete_messages()` function that:\n   - Takes the Gmail API service object and a list of message IDs as input\n   - Handles batch deletion in chunks (Gmail API has a limit per batch)\n   - Returns the total number of deleted messages\n\n```python\ndef delete_messages(service, message_ids, user_id='me', batch_size=1000):\n    \"\"\"Delete messages in batches using the Gmail API.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        message_ids: List of message IDs to delete\n        user_id: User's email address or 'me'\n        batch_size: Maximum number of messages per batch delete request\n        \n    Returns:\n        Number of messages deleted\n    \"\"\"\n    if not message_ids:\n        return 0\n        \n    total_deleted = 0\n    \n    # Process in batches to respect API limits\n    for i in range(0, len(message_ids), batch_size):\n        batch = message_ids[i:i + batch_size]\n        try:\n            service.users().messages().batchDelete(\n                userId=user_id,\n                body={'ids': batch}\n            ).execute()\n            total_deleted += len(batch)\n        except Exception as error:\n            print(f'An error occurred while deleting batch: {error}')\n    \n    return total_deleted\n```",
+        "testStrategy": "Test the function with a small set of message IDs (preferably test emails) and verify they are successfully deleted from the Gmail account. Check that the function correctly returns the number of deleted messages.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement dry-run mode",
+        "description": "Add functionality to simulate deletions and list affected emails without actually deleting them.",
+        "details": "1. Modify the main functions to accept a dry_run parameter\n2. When dry_run is True, display information about messages that would be deleted instead of actually deleting them\n3. For a sample of messages, fetch and display additional details like sender and subject\n\n```python\ndef get_message_details(service, message_id, user_id='me'):\n    \"\"\"Get basic details of a message for display in dry-run mode.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        message_id: ID of the message to get details for\n        user_id: User's email address or 'me'\n        \n    Returns:\n        Dictionary with message details (date, sender, subject)\n    \"\"\"\n    try:\n        message = service.users().messages().get(\n            userId=user_id, id=message_id, format='metadata',\n            metadataHeaders=['From', 'Subject', 'Date']).execute()\n        \n        headers = {header['name']: header['value'] \n                  for header in message['payload']['headers']} \n                  if 'headers' in message.get('payload', {}) else {}\n        \n        return {\n            'id': message_id,\n            'date': headers.get('Date', 'Unknown'),\n            'from': headers.get('From', 'Unknown'),\n            'subject': headers.get('Subject', 'No Subject'),\n            'timestamp': message.get('internalDate')\n        }\n    except Exception as error:\n        print(f'Error getting message details: {error}')\n        return {'id': message_id, 'error': str(error)}\n\ndef process_old_inbox_emails(service, dry_run=False, user_id='me'):\n    \"\"\"Find and delete old inbox emails.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        dry_run: If True, only simulate deletion\n        user_id: User's email address or 'me'\n        \n    Returns:\n        Number of messages processed\n    \"\"\"\n    message_ids = find_old_inbox_emails(service, user_id)\n    count = len(message_ids)\n    \n    if dry_run:\n        print(f\"[DRY RUN] Found {count} old inbox emails that would be deleted\")\n        # Show sample of messages that would be deleted\n        if count > 0:\n            sample_size = min(5, count)\n            print(f\"\\nSample of {sample_size} messages that would be deleted:\")\n            for i in range(sample_size):\n                details = get_message_details(service, message_ids[i])\n                print(f\"  - From: {details['from']}\")\n                print(f\"    Subject: {details['subject']}\")\n                print(f\"    Date: {details['date']}\\n\")\n        return count\n    else:\n        print(f\"Deleting {count} old inbox emails...\")\n        deleted = delete_messages(service, message_ids, user_id)\n        print(f\"Successfully deleted {deleted} old inbox emails\")\n        return deleted\n\n# Similar function for spam emails\ndef process_spam_emails(service, dry_run=False, user_id='me'):\n    \"\"\"Find and delete spam emails.\n    \n    Args:\n        service: Authenticated Gmail API service instance\n        dry_run: If True, only simulate deletion\n        user_id: User's email address or 'me'\n        \n    Returns:\n        Number of messages processed\n    \"\"\"\n    message_ids = find_spam_emails(service, user_id)\n    count = len(message_ids)\n    \n    if dry_run:\n        print(f\"[DRY RUN] Found {count} spam emails that would be deleted\")\n        # Show sample of messages that would be deleted\n        if count > 0:\n            sample_size = min(5, count)\n            print(f\"\\nSample of {sample_size} spam messages that would be deleted:\")\n            for i in range(sample_size):\n                details = get_message_details(service, message_ids[i])\n                print(f\"  - From: {details['from']}\")\n                print(f\"    Subject: {details['subject']}\")\n                print(f\"    Date: {details['date']}\\n\")\n        return count\n    else:\n        print(f\"Deleting {count} spam emails...\")\n        deleted = delete_messages(service, message_ids, user_id)\n        print(f\"Successfully deleted {deleted} spam emails\")\n        return deleted\n```",
+        "testStrategy": "Test the dry-run mode by running the script with the --dry-run flag and verifying it displays information about emails that would be deleted without actually deleting them. Then run without the flag and confirm actual deletion occurs.",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4,
+          5
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement main function with command-line arguments",
+        "description": "Create the main function that ties everything together and add command-line argument parsing for options like dry-run mode.",
+        "details": "1. Create a `main()` function that:\n   - Parses command-line arguments\n   - Calls the authentication function\n   - Processes inbox and spam emails based on user options\n   - Provides a summary of actions taken\n\n```python\nimport argparse\nimport sys\n\ndef main():\n    \"\"\"Main function to run the Gmail Cleaner Utility.\"\"\"\n    parser = argparse.ArgumentParser(description='Gmail Cleaner Utility')\n    parser.add_argument('--credentials', default='credentials.json',\n                        help='Path to the credentials.json file')\n    parser.add_argument('--dry-run', action='store_true',\n                        help='Simulate deletions without actually deleting')\n    parser.add_argument('--skip-inbox', action='store_true',\n                        help='Skip cleaning old inbox emails')\n    parser.add_argument('--skip-spam', action='store_true',\n                        help='Skip cleaning spam emails')\n    \n    args = parser.parse_args()\n    \n    try:\n        # Authenticate with Gmail API\n        print(\"Authenticating with Gmail API...\")\n        service = authenticate(args.credentials)\n        print(\"Authentication successful!\\n\")\n        \n        total_processed = 0\n        \n        # Process old inbox emails if not skipped\n        if not args.skip_inbox:\n            inbox_count = process_old_inbox_emails(service, args.dry_run)\n            total_processed += inbox_count\n            print()\n        \n        # Process spam emails if not skipped\n        if not args.skip_spam:\n            spam_count = process_spam_emails(service, args.dry_run)\n            total_processed += spam_count\n        \n        # Print summary\n        print(\"\\n\" + \"-\"*50)\n        if args.dry_run:\n            print(f\"DRY RUN SUMMARY: Would have deleted {total_processed} emails\")\n        else:\n            print(f\"SUMMARY: Successfully processed {total_processed} emails\")\n        print(\"-\"*50)\n        \n    except Exception as error:\n        print(f\"An error occurred: {error}\")\n        return 1\n    \n    return 0\n\nif __name__ == '__main__':\n    sys.exit(main())\n```",
+        "testStrategy": "Test the main function with various command-line arguments combinations (--dry-run, --skip-inbox, --skip-spam) and verify it behaves as expected in each case. Ensure error handling works correctly when invalid arguments are provided.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          5,
+          6
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement comprehensive logging",
+        "description": "Add detailed logging throughout the application to track the number of emails found and deleted in each step.",
+        "details": "1. Add Python's built-in logging module to provide consistent logging\n2. Configure log levels (INFO, DEBUG, ERROR)\n3. Add log statements at key points in the code\n\n```python\nimport logging\n\ndef setup_logging(verbose=False):\n    \"\"\"Configure logging for the application.\n    \n    Args:\n        verbose: If True, set log level to DEBUG\n    \"\"\"\n    log_level = logging.DEBUG if verbose else logging.INFO\n    logging.basicConfig(\n        level=log_level,\n        format='%(asctime)s - %(levelname)s - %(message)s',\n        datefmt='%Y-%m-%d %H:%M:%S'\n    )\n\n# Update main function to include logging setup\ndef main():\n    \"\"\"Main function to run the Gmail Cleaner Utility.\"\"\"\n    parser = argparse.ArgumentParser(description='Gmail Cleaner Utility')\n    # ... existing arguments ...\n    parser.add_argument('--verbose', action='store_true',\n                        help='Enable verbose logging')\n    \n    args = parser.parse_args()\n    \n    # Setup logging\n    setup_logging(args.verbose)\n    \n    try:\n        # Authenticate with Gmail API\n        logging.info(\"Authenticating with Gmail API...\")\n        service = authenticate(args.credentials)\n        logging.info(\"Authentication successful!\")\n        \n        # ... rest of the main function with logging ...\n        \n    except Exception as error:\n        logging.error(f\"An error occurred: {error}\", exc_info=args.verbose)\n        return 1\n    \n    return 0\n\n# Update other functions to use logging\ndef find_old_inbox_emails(service, user_id='me'):\n    \"\"\"Find all emails in the inbox older than 1 year.\"\"\"\n    query = 'in:inbox older_than:1y'\n    message_ids = []\n    \n    try:\n        logging.info(f\"Searching for emails with query: '{query}'\")\n        # ... existing code ...\n        \n        if 'messages' in response:\n            batch_size = len(response['messages'])\n            message_ids.extend([msg['id'] for msg in response['messages']])\n            logging.debug(f\"Found {batch_size} messages in first batch\")\n            \n        # ... pagination code ...\n            \n        logging.info(f\"Total old inbox emails found: {len(message_ids)}\")\n    \n    except Exception as error:\n        logging.error(f\"Error finding old inbox emails: {error}\")\n    \n    return message_ids\n\n# Similarly update other functions with appropriate logging\n```",
+        "testStrategy": "Test the logging functionality by running the script with different verbosity levels and verifying the appropriate log messages are displayed. Check that error conditions are properly logged with stack traces when in verbose mode.",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          4,
+          5,
+          7
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Create comprehensive README.md",
+        "description": "Write a detailed README.md file with setup instructions, usage examples, and troubleshooting tips.",
+        "details": "Create a README.md file with the following sections:\n\n```markdown\n# Gmail Cleaner Utility\n\nA Python utility to automatically clean up your Gmail account by deleting:\n- All emails in the Spam folder\n- All Inbox emails older than 1 year\n\n## Prerequisites\n\n- Python 3.9 or higher\n- A Google account with Gmail\n- Google API credentials (instructions below)\n\n## Setup\n\n### 1. Clone the repository\n```bash\ngit clone <repository-url>\ncd gmail-cleaner\n```\n\n### 2. Install dependencies\n```bash\npip install -r requirements.txt\n```\n\n### 3. Set up Google API credentials\n\n1. Go to the [Google Cloud Console](https://console.cloud.google.com/)\n2. Create a new project\n3. Enable the Gmail API for your project\n4. Create OAuth 2.0 credentials:\n   - Go to \"Credentials\" > \"Create Credentials\" > \"OAuth client ID\"\n   - Application type: Desktop application\n   - Download the credentials as JSON\n5. Save the downloaded file as `credentials.json` in the project directory\n\n## Usage\n\n### Basic usage\n\n```bash\npython main.py\n```\n\nThis will authenticate with your Gmail account and delete all spam emails and inbox emails older than 1 year.\n\n### Dry run mode\n\nTo see what would be deleted without actually deleting anything:\n\n```bash\npython main.py --dry-run\n```\n\n### Additional options\n\n```bash\npython main.py --help\n```\n\nThis will show all available command-line options:\n\n- `--credentials PATH`: Path to your credentials.json file\n- `--dry-run`: Simulate deletions without actually deleting\n- `--skip-inbox`: Skip cleaning old inbox emails\n- `--skip-spam`: Skip cleaning spam emails\n- `--verbose`: Enable verbose logging\n\n## First-time authentication\n\nThe first time you run the utility, it will open a browser window asking you to authorize the application to access your Gmail account. After authorization, a token will be saved locally so you won't need to authenticate again unless the token expires.\n\n## Troubleshooting\n\n### Authentication issues\n\nIf you encounter authentication problems:\n1. Delete the `token.json` file if it exists\n2. Verify your `credentials.json` file is valid\n3. Run the script again with the `--verbose` flag\n\n### API quota limits\n\nThe Gmail API has usage limits. If you hit these limits, the script will log appropriate error messages. Wait a while before trying again.\n\n## Security Notes\n\n- This utility only requests the minimum permissions needed (`https://www.googleapis.com/auth/gmail.modify`)\n- No email content is stored or processed outside of the Gmail API\n- Your credentials and authentication token are stored locally on your machine\n\n## License\n\n[MIT License](LICENSE)\n```",
+        "testStrategy": "Review the README.md file for completeness, accuracy, and clarity. Ensure all setup steps and usage examples are correct by following them on a fresh environment.",
+        "priority": "low",
+        "dependencies": [
+          1,
+          2,
+          7
+        ],
+        "status": "in-progress",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement error handling and recovery",
+        "description": "Add robust error handling throughout the application to gracefully handle API errors, rate limits, and other potential issues.",
+        "details": "1. Create utility functions for handling common errors\n2. Implement retry logic for transient errors\n3. Add graceful degradation for API limits\n\n```python\nimport time\nfrom googleapiclient.errors import HttpError\n\ndef retry_with_backoff(func, max_retries=5, initial_delay=1, backoff_factor=2):\n    \"\"\"Retry a function with exponential backoff.\n    \n    Args:\n        func: Function to retry\n        max_retries: Maximum number of retry attempts\n        initial_delay: Initial delay between retries in seconds\n        backoff_factor: Multiplier for delay between retries\n        \n    Returns:\n        Result of the function call\n    \n    Raises:\n        The last exception encountered\n    \"\"\"\n    retries = 0\n    delay = initial_delay\n    \n    while retries < max_retries:\n        try:\n            return func()\n        except HttpError as error:\n            # Check if error is retryable\n            if error.resp.status in [429, 500, 502, 503, 504]:\n                retries += 1\n                if retries >= max_retries:\n                    logging.error(f\"Maximum retries reached. Last error: {error}\")\n                    raise\n                \n                sleep_time = delay * (backoff_factor ** (retries - 1))\n                logging.warning(f\"API error: {error}. Retrying in {sleep_time} seconds...\")\n                time.sleep(sleep_time)\n            else:\n                # Non-retryable error\n                logging.error(f\"Non-retryable API error: {error}\")\n                raise\n        except Exception as error:\n            logging.error(f\"Unexpected error: {error}\")\n            raise\n\n# Update API call functions to use retry logic\ndef find_old_inbox_emails(service, user_id='me'):\n    \"\"\"Find all emails in the inbox older than 1 year.\"\"\"\n    query = 'in:inbox older_than:1y'\n    message_ids = []\n    \n    try:\n        logging.info(f\"Searching for emails with query: '{query}'\")\n        \n        # Use retry logic for API call\n        def api_call():\n            return service.users().messages().list(\n                userId=user_id, q=query).execute()\n        \n        response = retry_with_backoff(api_call)\n        \n        # ... rest of the function ...\n    \n    except Exception as error:\n        logging.error(f\"Error finding old inbox emails: {error}\")\n    \n    return message_ids\n\n# Add graceful degradation for batch deletion\ndef delete_messages(service, message_ids, user_id='me', batch_size=1000):\n    \"\"\"Delete messages in batches using the Gmail API.\"\"\"\n    if not message_ids:\n        return 0\n        \n    total_deleted = 0\n    failed_batches = []\n    \n    # Process in batches to respect API limits\n    for i in range(0, len(message_ids), batch_size):\n        batch = message_ids[i:i + batch_size]\n        try:\n            def api_call():\n                return service.users().messages().batchDelete(\n                    userId=user_id,\n                    body={'ids': batch}\n                ).execute()\n            \n            retry_with_backoff(api_call)\n            total_deleted += len(batch)\n            logging.info(f\"Successfully deleted batch of {len(batch)} messages\")\n            \n        except Exception as error:\n            logging.error(f\"Failed to delete batch: {error}\")\n            failed_batches.append(batch)\n    \n    # Report on any failures\n    if failed_batches:\n        failed_count = sum(len(batch) for batch in failed_batches)\n        logging.warning(f\"Failed to delete {failed_count} messages across {len(failed_batches)} batches\")\n    \n    return total_deleted\n```",
+        "testStrategy": "Test error handling by simulating various error conditions (network issues, API rate limits, invalid credentials) and verifying the application handles them gracefully. Verify retry logic works by monitoring API calls during execution.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4,
+          5,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-06-24T09:32:01.383Z",
+      "updated": "2025-06-24T09:46:28.347Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
